@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tfops as Z
+import src.glow.tfops as Z
 import horovod.tensorflow as hvd
 
 # Optimizers

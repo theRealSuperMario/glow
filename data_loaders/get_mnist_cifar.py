@@ -2,6 +2,16 @@ import numpy as np
 
 
 def downsample(x, resolution):
+    '''
+    perform average downsampling on x to targetresolution
+
+    Args:
+        x:
+        resolution: target x and y resolution of input x
+
+    Returns:
+
+    '''
     assert x.dtype == np.float32
     assert x.shape[1] % resolution == 0
     assert x.shape[2] % resolution == 0
@@ -20,6 +30,18 @@ def x_to_uint8(x):
 
 
 def shard(data, shards, rank):
+    '''
+    splits data into partitions of size x.shape[0]/shards
+    returns the partition with index rank
+
+    Args:
+        data: data to be partitioned as tuple (x,y)
+        shards: number of shards to create (partitions)
+        rank: idx for partition
+
+    Returns:
+
+    '''
     # Determinisitc shards
     x, y = data
     assert x.shape[0] == y.shape[0]
@@ -31,6 +53,19 @@ def shard(data, shards, rank):
 
 
 def get_data(problem, shards, rank, data_augmentation_level, n_batch_train, n_batch_test, n_batch_init, resolution):
+    '''
+    Args:
+        problem: 'mnist' or 'cifar'
+        shards: number of data partitions to create
+        rank: index of partition
+        data_augmentation_level: [0, 1, 2]
+        n_batch_train:
+        n_batch_test:
+        n_batch_init:
+        resolution: target resolution of images
+    Returns:
+
+    '''
     if problem == 'mnist':
         from keras.datasets import mnist
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -42,6 +77,7 @@ def get_data(problem, shards, rank, data_augmentation_level, n_batch_train, n_ba
         x_test = np.lib.pad(x_test, ((0, 0), (2, 2), (2, 2)), 'minimum')
         x_train = np.tile(np.reshape(x_train, (-1, 32, 32, 1)), (1, 1, 1, 3))
         x_test = np.tile(np.reshape(x_test, (-1, 32, 32, 1)), (1, 1, 1, 3))
+
     elif problem == 'cifar10':
         from keras.datasets import cifar10
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()

@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-import tfops as Z
-import optim
+import src.glow.tfops as Z
+import src.glow.optim as optim
 import numpy as np
 import horovod.tensorflow as hvd
 from tensorflow.contrib.framework.python.ops import add_arg_scope
@@ -25,7 +25,7 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
     loss_train, stats_train = f_loss(train_iterator, True)
     all_params = tf.trainable_variables()
     if hps.gradient_checkpointing == 1:
-        from memory_saving_gradients import gradients
+        from src.glow.memory_saving_gradients import gradients
         gs = gradients(loss_train, all_params)
     else:
         gs = tf.gradients(loss_train, all_params)
@@ -107,7 +107,13 @@ def prior(name, y_onehot, hps):
     with tf.variable_scope(name):
         n_z = hps.top_shape[-1]
 
-        h = tf.zeros([tf.shape(y_onehot)[0]]+hps.top_shape[:2]+[2*n_z])
+        top_shape = hps.top_shape
+        if type(top_shape) == tuple:
+            top_shape = list(top_shape)
+            print(top_shape)
+
+
+        h = tf.zeros([tf.shape(y_onehot)[0]] + top_shape[:2]+[2*n_z])
         if hps.learntop:
             h = Z.conv2d_zeros('p', h, 2*n_z)
         if hps.ycond:
@@ -115,6 +121,7 @@ def prior(name, y_onehot, hps):
                                            2*n_z), [-1, 1, 1, 2 * n_z])
 
         pz = Z.gaussian_diag(h[:, :, :, :n_z], h[:, :, :, n_z:])
+        # first half of last dimension is mean, second half is sigma
 
     def logp(z1):
         objective = pz.logp(z1)
@@ -132,6 +139,18 @@ def prior(name, y_onehot, hps):
 
 
 def model(sess, hps, train_iterator, test_iterator, data_init):
+    '''
+
+    Args:
+        sess:
+        hps:
+        train_iterator:
+        test_iterator:
+        data_init:
+
+    Returns:
+
+    '''
 
     # Only for decoding/init, rest use iterators directly
     with tf.name_scope('input'):

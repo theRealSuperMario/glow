@@ -444,12 +444,12 @@ def gaussian_diag(mean, logsd):
     class o(object):
         pass
     o.mean = mean
-    o.logsd = logsd
-    o.eps = tf.random_normal(tf.shape(mean))
+    o.logsd = logsd # log standard deviation
+    o.eps = tf.random_normal(tf.shape(mean)) # mean 0, std 1
     o.sample = mean + tf.exp(logsd) * o.eps
     o.sample2 = lambda eps: mean + tf.exp(logsd) * eps
     o.logps = lambda x: -0.5 * \
-        (np.log(2 * np.pi) + 2. * logsd + (x - mean) ** 2 / tf.exp(2. * logsd))
+        (np.log(2 * np.pi) + 2. * logsd + (x - mean) ** 2 / tf.exp(2. * logsd)) # probability density
     o.logp = lambda x: flatten_sum(o.logps(x))
     o.get_eps = lambda x: (x - mean) / tf.exp(logsd)
     return o
