@@ -182,7 +182,10 @@ def main(hps):
         test_logger = ResultLogger(logdir + "test.txt", **hps.__dict__)
 
     tcurr = time.time()
-    assert tf.test.is_gpu_available(), 'no gpu available'
+    # assert tf.test.is_gpu_available(), 'no gpu available'
+    if not tf.test.is_gpu_available():
+        import warnings
+        warnings.warn('no gpu available')
     for epoch in range(1, hps.epochs):
 
         t = time.time()
