@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Modified Horovod MNIST example
-
+from __future__ import print_function
 import os
 import sys
 import time
@@ -9,8 +9,10 @@ import time
 import horovod.tensorflow as hvd
 import numpy as np
 import tensorflow as tf
-import graphics
-from utils import ResultLogger
+from src.glow import graphics
+from src.glow.utils import ResultLogger
+from src.glow import data_loaders
+import pprintpp
 
 learn = tf.contrib.learn
 
@@ -20,6 +22,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 def _print(*args, **kwargs):
     if hvd.rank() == 0:
+        template = "{:10}" * len(args)
+        #print(template.format(*args))
+        #print(**kwargs)
+        #pprintpp.pprint(*args, **kwargs)
         print(*args, **kwargs)
 
 
@@ -105,14 +111,14 @@ def get_data(hps, sess):
 
     if hps.problem in ['imagenet-oord', 'imagenet', 'celeba', 'lsun_realnvp', 'lsun']:
         hps.direct_iterator = True
-        import data_loaders.get_data as v
+        import src.glow.data_loaders.get_data as v
         train_iterator, test_iterator, data_init = \
             v.get_data(sess, hps.data_dir, hvd.size(), hvd.rank(), hps.pmap, hps.fmap, hps.local_batch_train,
                        hps.local_batch_test, hps.local_batch_init, hps.image_size, hps.rnd_crop)
 
     elif hps.problem in ['mnist', 'cifar10']:
         hps.direct_iterator = False
-        import data_loaders.get_mnist_cifar as v
+        import src.glow.data_loaders.get_mnist_cifar as v
         train_iterator, test_iterator, data_init = \
             v.get_data(hps.problem, hvd.size(), hvd.rank(), hps.dal, hps.local_batch_train,
                        hps.local_batch_test, hps.local_batch_init,  hps.image_size)
@@ -176,6 +182,7 @@ def main(hps):
         test_logger = ResultLogger(logdir + "test.txt", **hps.__dict__)
 
     tcurr = time.time()
+    assert tf.test.is_gpu_available(), 'no gpu available'
     for epoch in range(1, hps.epochs):
 
         t = time.time()
