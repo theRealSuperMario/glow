@@ -5,6 +5,7 @@ import src.glow.optim as optim
 import numpy as np
 import horovod.tensorflow as hvd
 from tensorflow.contrib.framework.python.ops import add_arg_scope
+from sklearn.metrics import roc_curve, roc_auc_score
 
 
 '''
@@ -12,7 +13,7 @@ f_loss: function with as input the (x,y,reuse=False), and as output a list/tuple
 '''
 
 
-def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, log_prob, data_init, lr, f_loss):
+def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, log_prob, data_init, lr, f_loss, log_prob_iterator):
 
     # == Create class with static fields and methods
     class m(object):
@@ -57,6 +58,17 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, log_prob,
             return sess.run(stats_test, {feeds['x']: _x,
                                          feeds['y']: _y})
         m.test = _test
+
+    # === logprobs on test
+    res_probs = log_prob_iterator(test_iterator, False, reuse=True)
+    if hps.direct_iterator:
+        m.probs = lambda: sess.run(res_probs)
+    else:
+        def _probs():
+            _x, _y = test_iterator()
+            return sess.run(res_probs, {feeds['x']: _x,
+                                         feeds['y']: _y})
+        m.probs = _probs
 
     # === Saving and restoring
     saver = tf.train.Saver()
@@ -280,9 +292,29 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
         return tf.reduce_mean(local_loss), global_stats
 
+    def log_prob_iterator(iterator, is_training, reuse=False):
+        if hps.direct_iterator and iterator is not None:
+            x, y = iterator.get_next()
+        else:
+            x, y = X, Y
+
+        probs = log_prob(x, y, is_training, reuse)
+
+        print(probs.shape)
+
+        auc_score = tf.metrics.auc(y, tf.exp(probs))
+
+        #auc = roc_auc_score(y, probs.flatten())
+
+        stats = [auc_score]
+        global_stats = Z.allreduce_mean(
+            tf.stack([tf.reduce_mean(i) for i in stats]))
+
+        return tf.reduce_mean(probs), global_stats
+
     feeds = {'x': X, 'y': Y}
     m = abstract_model_xy(sess, hps, feeds, train_iterator,
-                          test_iterator, log_prob, data_init, lr, f_loss)
+                          test_iterator, log_prob, data_init, lr, f_loss, log_prob_iterator)
 
     # === Decoding functions
     m.eps_std = tf.placeholder(tf.float32, [None], name='eps_std')
