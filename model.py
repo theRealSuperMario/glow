@@ -13,7 +13,7 @@ f_loss: function with as input the (x,y,reuse=False), and as output a list/tuple
 '''
 
 
-def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, log_prob, data_init, lr, f_loss, log_prob_iterator):
+def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init, lr, f_loss, log_prob=None, log_prob_iterator = None):
 
     # == Create class with static fields and methods
     class m(object):
@@ -235,7 +235,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
         return bits_x, bits_y, classification_error
 
-    def log_prob(x, y, is_training, reuse=False):
+    def log_prob(x, y, reuse=False):
         with tf.variable_scope('model', reuse=reuse):
             y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
 
@@ -314,7 +314,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
     feeds = {'x': X, 'y': Y}
     m = abstract_model_xy(sess, hps, feeds, train_iterator,
-                          test_iterator, log_prob, data_init, lr, f_loss, log_prob_iterator)
+                          test_iterator, data_init, lr, f_loss, log_prob=log_prob, log_prob_iterator=log_prob_iterator)
 
     # === Decoding functions
     m.eps_std = tf.placeholder(tf.float32, [None], name='eps_std')
