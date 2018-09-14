@@ -298,7 +298,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
         else:
             x, y = X, Y
 
-        probs = log_prob(x, y, is_training, reuse)
+        probs = log_prob(x, y, reuse)
 
         print(probs.shape)
 
