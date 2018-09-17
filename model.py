@@ -236,9 +236,8 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
         return bits_x, bits_y, classification_error
 
     def log_prob(x, y, reuse=False):
+        y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
         with tf.variable_scope('model', reuse=reuse):
-            y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
-
             objective = tf.zeros_like(x, dtype='float32')[:, 0, 0, 0]
 
             z = preprocess(x)
