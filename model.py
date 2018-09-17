@@ -13,7 +13,7 @@ f_loss: function with as input the (x,y,reuse=False), and as output a list/tuple
 '''
 
 
-def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init, lr, f_loss, log_prob=None, log_prob_iterator = None):
+def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init, lr, f_loss, log_prob_iterator = None):
 
     # == Create class with static fields and methods
     class m(object):
@@ -21,7 +21,6 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
     m.sess = sess
     m.feeds = feeds
     m.lr = lr
-    m.log_prob = log_prob
 
     # === Loss and optimizer
     loss_train, stats_train = f_loss(train_iterator, True)
@@ -313,7 +312,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
     feeds = {'x': X, 'y': Y}
     m = abstract_model_xy(sess, hps, feeds, train_iterator,
-                          test_iterator, data_init, lr, f_loss, log_prob=log_prob, log_prob_iterator=log_prob_iterator)
+                          test_iterator, data_init, lr, f_loss, log_prob_iterator=log_prob_iterator)
 
     # === Decoding functions
     m.eps_std = tf.placeholder(tf.float32, [None], name='eps_std')
@@ -322,6 +321,12 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
     def m_decode(_y, _eps_std):
         return m.sess.run(x_sampled, {Y: _y, m.eps_std: _eps_std})
     m.decode = m_decode
+
+    log_prob_temp = log_prob(X, Y, True)
+
+    def m_log_prob(_x, _y):
+        return m.sess.run(log_prob_temp, {X: _x, Y: _y})
+    m.log_prob = m_log_prob
 
     return m
 
