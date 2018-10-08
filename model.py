@@ -5,6 +5,7 @@ import src.glow.optim as optim
 import numpy as np
 import horovod.tensorflow as hvd
 from tensorflow.contrib.framework.python.ops import add_arg_scope
+from sklearn.metrics import roc_curve, roc_auc_score
 
 
 '''
@@ -12,7 +13,7 @@ f_loss: function with as input the (x,y,reuse=False), and as output a list/tuple
 '''
 
 
-def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init, lr, f_loss, log_prob=None):
+def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init, lr, f_loss, log_prob_iterator = None):
 
     # == Create class with static fields and methods
     class m(object):
@@ -20,7 +21,6 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
     m.sess = sess
     m.feeds = feeds
     m.lr = lr
-    # m.log_prob = log_prob
 
     # === Loss and optimizer
     loss_train, stats_train = f_loss(train_iterator, True)
@@ -57,6 +57,17 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
             return sess.run(stats_test, {feeds['x']: _x,
                                          feeds['y']: _y})
         m.test = _test
+
+    # === logprobs on test
+    res_probs = log_prob_iterator(test_iterator, False, reuse=True)
+    if hps.direct_iterator:
+        m.probs = lambda: sess.run(res_probs)
+    else:
+        def _probs():
+            _x, _y = test_iterator()
+            return sess.run(res_probs, {feeds['x']: _x,
+                                         feeds['y']: _y})
+        m.probs = _probs
 
     # === Saving and restoring
     saver = tf.train.Saver()
@@ -223,7 +234,10 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
         return bits_x, bits_y, classification_error
 
-
+    def log_prob(x, y, reuse=False):
+        y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
+        with tf.variable_scope('model', reuse=reuse):
+            objective = tf.zeros_like(x, dtype='float32')[:, 0, 0, 0]
 
 
     # === Sampling function
@@ -258,9 +272,29 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
         return tf.reduce_mean(local_loss), global_stats
 
+    def log_prob_iterator(iterator, is_training, reuse=False):
+        if hps.direct_iterator and iterator is not None:
+            x, y = iterator.get_next()
+        else:
+            x, y = X, Y
+
+        probs = log_prob(x, y, reuse)
+
+        print(probs.shape)
+
+        auc_score = tf.metrics.auc(y, tf.exp(probs))
+
+        #auc = roc_auc_score(y, probs.flatten())
+
+        stats = [auc_score]
+        global_stats = Z.allreduce_mean(
+            tf.stack([tf.reduce_mean(i) for i in stats]))
+
+        return tf.reduce_mean(probs), global_stats
+
     feeds = {'x': X, 'y': Y}
     m = abstract_model_xy(sess, hps, feeds, train_iterator,
-                          test_iterator, data_init, lr, f_loss)
+                          test_iterator, data_init, lr, f_loss, log_prob_iterator=log_prob_iterator)
 
     # === Decoding functions
     m.eps_std = tf.placeholder(tf.float32, [None], name='eps_std')
@@ -270,37 +304,12 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
         return m.sess.run(x_sampled, {Y: _y, m.eps_std: _eps_std})
     m.decode = m_decode
 
-    # === Loglike function
-
-    def log_prob(x, y, reuse=True):
-        y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
-        with tf.variable_scope('model', reuse=reuse):
-            objective = tf.zeros_like(x, dtype='float32')[:, 0, 0, 0]
-
-            z = preprocess(x)
-            z = z + tf.random_uniform(tf.shape(z), 0, 1./hps.n_bins)
-
-            objective += - np.log(hps.n_bins) * np.prod(Z.int_shape(z)[1:])
-
-            # Encode
-            z = Z.squeeze2d(z, 2)  # > 16x16x12
-
-            #z, logdet
-            z, objective = encoder(z, objective)
-
-            hps.top_shape = Z.int_shape(z)[1:]
-
-            # Prior
-            logp, _ = prior("prior", y_onehot, hps)
-            objective += logp(z)
-            return objective
-
-    x_log_prob = log_prob(X, Y)
+    log_prob_temp = log_prob(X, Y, True)
 
     def m_log_prob(_x, _y):
-        return m.sess.run(x_log_prob, {X: _x, Y: _y})
-
+        return m.sess.run(log_prob_temp, {X: _x, Y: _y})
     m.log_prob = m_log_prob
+
     return m
 
 
