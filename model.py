@@ -20,7 +20,7 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
     m.sess = sess
     m.feeds = feeds
     m.lr = lr
-    m.log_prob = log_prob
+    # m.log_prob = log_prob
 
     # === Loss and optimizer
     loss_train, stats_train = f_loss(train_iterator, True)
@@ -223,29 +223,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
         return bits_x, bits_y, classification_error
 
-    def log_prob(x, y, reuse=False):
-        with tf.variable_scope('model', reuse=reuse):
-            y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
 
-            objective = tf.zeros_like(x, dtype='float32')[:, 0, 0, 0]
-
-            z = preprocess(x)
-            z = z + tf.random_uniform(tf.shape(z), 0, 1./hps.n_bins)
-
-            objective += - np.log(hps.n_bins) * np.prod(Z.int_shape(z)[1:])
-
-            # Encode
-            z = Z.squeeze2d(z, 2)  # > 16x16x12
-
-            #z, logdet
-            z, objective = encoder(z, objective)
-
-            hps.top_shape = Z.int_shape(z)[1:]
-
-            # Prior
-            logp, _ = prior("prior", y_onehot, hps)
-            objective += logp(z)
-            return objective
 
 
     # === Sampling function
@@ -282,7 +260,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
     feeds = {'x': X, 'y': Y}
     m = abstract_model_xy(sess, hps, feeds, train_iterator,
-                          test_iterator, data_init, lr, f_loss, log_prob=log_prob)
+                          test_iterator, data_init, lr, f_loss)
 
     # === Decoding functions
     m.eps_std = tf.placeholder(tf.float32, [None], name='eps_std')
@@ -292,6 +270,37 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
         return m.sess.run(x_sampled, {Y: _y, m.eps_std: _eps_std})
     m.decode = m_decode
 
+    # === Loglike function
+
+    def log_prob(x, y, reuse=True):
+        y_onehot = tf.cast(tf.one_hot(y, hps.n_y, 1, 0), 'float32')
+        with tf.variable_scope('model', reuse=reuse):
+            objective = tf.zeros_like(x, dtype='float32')[:, 0, 0, 0]
+
+            z = preprocess(x)
+            z = z + tf.random_uniform(tf.shape(z), 0, 1./hps.n_bins)
+
+            objective += - np.log(hps.n_bins) * np.prod(Z.int_shape(z)[1:])
+
+            # Encode
+            z = Z.squeeze2d(z, 2)  # > 16x16x12
+
+            #z, logdet
+            z, objective = encoder(z, objective)
+
+            hps.top_shape = Z.int_shape(z)[1:]
+
+            # Prior
+            logp, _ = prior("prior", y_onehot, hps)
+            objective += logp(z)
+            return objective
+
+    x_log_prob = log_prob(X, Y)
+
+    def m_log_prob(_x, _y):
+        return m.sess.run(x_log_prob, {X: _x, Y: _y})
+
+    m.log_prob = m_log_prob
     return m
 
 
