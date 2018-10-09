@@ -239,6 +239,24 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
         with tf.variable_scope('model', reuse=reuse):
             objective = tf.zeros_like(x, dtype='float32')[:, 0, 0, 0]
 
+            z = preprocess(x)
+            z = z + tf.random_uniform(tf.shape(z), 0, 1./hps.n_bins)
+
+            objective += - np.log(hps.n_bins) * np.prod(Z.int_shape(z)[1:])
+
+            # Encode
+            z = Z.squeeze2d(z, 2)  # > 16x16x12
+
+            #z, logdet
+            z, objective = encoder(z, objective)
+
+            hps.top_shape = Z.int_shape(z)[1:]
+
+            # Prior
+            logp, _ = prior("prior", y_onehot, hps)
+            objective += logp(z)
+            return objective
+
 
     # === Sampling function
     def f_decode(y, eps_std):

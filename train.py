@@ -32,14 +32,6 @@ def _print(*args, **kwargs):
 def init_visualizations(hps, model, logdir):
 
     def decode_batch(y, eps):
-        '''
-        Args:
-            y: list of class values in case of mnist [0, 1, 2, 3... 9, 0, ... 9]
-            eps: epsilon of gaussian prior?
-
-        Returns:
-
-        '''
         n_batch = hps.local_batch_train
         xs = []
         for i in range(int(np.ceil(len(eps) / n_batch))):
