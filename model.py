@@ -13,7 +13,8 @@ f_loss: function with as input the (x,y,reuse=False), and as output a list/tuple
 '''
 
 
-def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init, lr, f_loss, log_prob_iterator = None):
+def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, 
+                    data_init, lr, f_loss, log_prob_auc_iterator = None, test_roc_iterator = None):
 
     # == Create class with static fields and methods
     class m(object):
@@ -58,13 +59,13 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
                                          feeds['y']: _y})
         m.test = _test
 
-    # === logprobs on test
-    res_probs = log_prob_iterator(test_iterator, False, reuse=True)
+    # === roc on test
+    res_probs = log_prob_auc_iterator(test_roc_iterator, False, reuse=True)
     if hps.direct_iterator:
         m.probs = lambda: sess.run(res_probs)
     else:
         def _probs():
-            _x, _y = test_iterator()
+            _x, _y = test_roc_iterator()
             return sess.run(res_probs, {feeds['x']: _x,
                                          feeds['y']: _y})
         m.probs = _probs
@@ -150,7 +151,7 @@ def prior(name, y_onehot, hps):
     return logp, sample
 
 
-def model(sess, hps, train_iterator, test_iterator, data_init):
+def model(sess, hps, train_iterator, test_iterator, data_init, test_roc_iterator=None):
     '''
 
     Args:
@@ -159,6 +160,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
         train_iterator:
         test_iterator:
         data_init:
+        test_roc_iterator: if we are in the ROC-Setting
 
     Returns:
 
@@ -290,7 +292,7 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
         return tf.reduce_mean(local_loss), global_stats
 
-    def log_prob_iterator(iterator, is_training, reuse=False):
+    def log_prob_auc_iterator(iterator, is_training, reuse=False):
         if hps.direct_iterator and iterator is not None:
             x, y = iterator.get_next()
         else:
@@ -312,7 +314,8 @@ def model(sess, hps, train_iterator, test_iterator, data_init):
 
     feeds = {'x': X, 'y': Y}
     m = abstract_model_xy(sess, hps, feeds, train_iterator,
-                          test_iterator, data_init, lr, f_loss, log_prob_iterator=log_prob_iterator)
+                          test_iterator, data_init, lr, f_loss,
+                          log_prob_auc_iterator=log_prob_auc_iterator, test_roc_iterator=test_roc_iterator)
 
     # === Decoding functions
     m.eps_std = tf.placeholder(tf.float32, [None], name='eps_std')
