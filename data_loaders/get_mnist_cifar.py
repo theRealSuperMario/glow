@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 
 
 def downsample(x, resolution):
@@ -13,15 +14,9 @@ def downsample(x, resolution):
 
     '''
     assert x.dtype == np.float32
-    assert x.shape[1] % resolution == 0
-    assert x.shape[2] % resolution == 0
-    if x.shape[1] == x.shape[2] == resolution:
-        return x
-    s = x.shape
-    x = np.reshape(x, [s[0], resolution, s[1] // resolution,
-                       resolution, s[2] // resolution, s[3]])
-    x = np.mean(x, (2, 4))
-    return x
+    #TODO not generic anymore!
+    reshaped = x.reshape((-1, 28,28, 1))
+    return tf.image.resize_bilinear(reshaped, size=(resolution, resolution)).eval()
 
 
 def x_to_uint8(x):
