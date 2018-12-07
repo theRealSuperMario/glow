@@ -15,8 +15,8 @@ def downsample(x, resolution):
     '''
     assert x.dtype == np.float32
     #TODO not generic anymore!
-    reshaped = x.reshape((-1, 28,28, 1))
-    return tf.image.resize_bilinear(reshaped, size=(resolution, resolution)).eval()
+    # reshaped = x.reshape((-1, 28,28, 1))
+    return tf.image.resize_bilinear(x, size=(resolution, resolution)).eval()
 
 
 def x_to_uint8(x):
