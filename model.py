@@ -1,3 +1,4 @@
+from typing import List, Callable, Dict, Any, Tuple, NamedTuple
 import tensorflow as tf
 
 import src.glow.tfops as Z
@@ -391,7 +392,9 @@ def revnet2d_step(name, z, logdet, hps, reverse):
                 h = f("f1", z1, hps.width, n_z)
                 shift = h[:, :, :, 0::2]
                 #scale = tf.exp(h[:, :, :, 1::2])
-                scale = tf.nn.sigmoid(h[:, :, :, 1::2] + 2.)
+                #TODO: It looks like he also had the tf.exp before, but then decided to go for sigmoid
+                #TODO: maybe this has to be done in the other glow as well
+                scale = tf.nn.sigmoid(h[:, :, :, 1::2] + 2.) # TODO sigmoid(x + 2) is within 0 and 1
                 z2 += shift
                 z2 *= scale
                 logdet += tf.reduce_sum(tf.log(scale), axis=[1, 2, 3])
@@ -436,6 +439,20 @@ def revnet2d_step(name, z, logdet, hps, reverse):
 
 
 def f(name, h, width, n_out=None):
+    '''
+    NN function as in paper
+    3x3 conv + relu
+    1x1 conv + relu
+    3x3 conv + relu
+    Args:
+        name:
+        h:
+        width:
+        n_out:
+
+    Returns:
+
+    '''
     n_out = n_out or int(h.get_shape()[3])
     with tf.variable_scope(name):
         h = tf.nn.relu(Z.conv2d("l_1", h, width))
@@ -445,6 +462,19 @@ def f(name, h, width, n_out=None):
 
 
 def f_resnet(name, h, width, n_out=None):
+    '''
+    NN without intermediate bottleneck
+    3x3 conv + relu
+    3x3 conv + relu
+    Args:
+        name:
+        h:
+        width:
+        n_out:
+
+    Returns:
+
+    '''
     n_out = n_out or int(h.get_shape()[3])
     with tf.variable_scope(name):
         h = tf.nn.relu(Z.conv2d("l_1", h, width))
@@ -457,6 +487,7 @@ def f_resnet(name, h, width, n_out=None):
 @add_arg_scope
 def invertible_1x1_conv(name, z, logdet, reverse=False):
 
+    #TODO we never actually use LU decomposition
     if True:  # Set to "False" to use the LU-decomposed version
 
         with tf.variable_scope(name):

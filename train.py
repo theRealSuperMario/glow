@@ -4,6 +4,7 @@
 from __future__ import print_function
 import os
 import sys
+sys.path.insert(0, '../..')
 import time
 
 import horovod.tensorflow as hvd
@@ -202,8 +203,11 @@ def main(hps):
         for it in range(hps.train_its):
 
             # Set learning rate, linearly annealed from 0 in the first hps.epochs_warmup epochs.
-            lr = hps.lr * min(1., n_processed /
-                              (hps.n_train * hps.epochs_warmup))
+            if hps.epochs_warmup > 0:
+                lr_factor = min(1., n_processed / (hps.n_train * hps.epochs_warmup))
+            else:
+                lr_factor = 1.0
+            lr = hps.lr * lr_factor
             print('learning_rate: ', lr)
             # Run a training step synchronously.
             _t = time.time()
