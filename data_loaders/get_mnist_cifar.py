@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def downsample(x, resolution):
+def downsample(x, resolution, evaluate=True):
     '''
     perform average downsampling on x to targetresolution
 
@@ -16,13 +16,29 @@ def downsample(x, resolution):
     assert x.dtype == np.float32
     #TODO not generic anymore!
     # reshaped = x.reshape((-1, 28,28, 1))
-    return tf.image.resize_bilinear(x, size=(resolution, resolution)).eval()
+    if evaluate:
+        return tf.image.resize_bilinear(x, size=(resolution, resolution)).eval()
+    return tf.image.resize_bilinear(x, size=(resolution, resolution))
+
+def np_downsample(x, resolution):
+    assert x.dtype == np.float32
+    assert x.shape[1] % resolution == 0
+    assert x.shape[2] % resolution == 0
+    if x.shape[1] == x.shape[2] == resolution:
+        return x
+    s = x.shape
+    x = np.reshape(x, [s[0], resolution, s[1] // resolution, resolution, s[2] // resolution, s[3]])
+    x = np.mean(x, (2,4))
+    return x
 
 
 def x_to_uint8(x):
     x = np.clip(np.floor(x), 0, 255)
     return x.astype(np.uint8)
 
+def tf_x_to_uint8(x):
+    x = tf.clip_by_value(tf.floor(x), 0, 255)
+    return tf.cast(x, tf.uint8)
 
 def shard(data, shards, rank):
     '''
@@ -128,7 +144,13 @@ def get_data(problem, shards, rank, data_augmentation_level, n_batch_train, n_ba
         def iterator():
             x_full, y = flow.next()
             x_full = x_full.astype(np.float32)
-            x = downsample(x_full, resolution)
+
+            # TODO: original openai_code: np_downsample
+            # x = downsample(x_full, resolution)
+            x = np_downsample(x_full, resolution)
+
+            #TODO original line: numpy
+            # x = tf_x_to_uint8(x)
             x = x_to_uint8(x)
             return x, y
 
@@ -153,5 +175,7 @@ def make_batch(iterator, iterator_batch_size, required_batch_size):
         x, y = iterator()
         xs.append(x)
         ys.append(y)
+    #TODO original line: numpy
     x, y = np.concatenate(xs)[:rb], np.concatenate(ys)[:rb]
+    # x, y = tf.concat(xs, axis=0)[:rb], tf.concat(ys, axis=0)[:rb]
     return {'x': x, 'y': y}

@@ -204,7 +204,7 @@ def main(hps):
             # Set learning rate, linearly annealed from 0 in the first hps.epochs_warmup epochs.
             lr = hps.lr * min(1., n_processed /
                               (hps.n_train * hps.epochs_warmup))
-
+            print('learning_rate: ', lr)
             # Run a training step synchronously.
             _t = time.time()
             train_results += [model.train(lr)]
@@ -261,6 +261,7 @@ def main(hps):
             if hvd.rank() == 0:
                 dcurr = time.time() - tcurr
                 tcurr = time.time()
+                _print('epoch, n_processed, n_images, ips, dtrain, dtest, dsample dcurr, train_results test_results, msg' )
                 _print(epoch, n_processed, n_images, "{:.1f} {:.1f} {:.1f} {:.1f} {:.1f}".format(
                     ips, dtrain, dtest, dsample, dcurr), train_results, test_results, msg)
 
