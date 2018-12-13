@@ -195,12 +195,13 @@ def main(hps):
     if not tf.test.is_gpu_available():
         import warnings
         warnings.warn('no gpu available')
-    for epoch in range(1, hps.epochs):
+    import tqdm
+    for epoch in tqdm.tqdm(range(1, hps.epochs)):
 
         t = time.time()
 
         train_results = []
-        for it in range(hps.train_its):
+        for it in tqdm.tqdm(range(hps.train_its)):
 
             # Set learning rate, linearly annealed from 0 in the first hps.epochs_warmup epochs.
             if hps.epochs_warmup > 0:
@@ -208,7 +209,6 @@ def main(hps):
             else:
                 lr_factor = 1.0
             lr = hps.lr * lr_factor
-            print('learning_rate: ', lr)
             # Run a training step synchronously.
             _t = time.time()
             train_results += [model.train(lr)]
