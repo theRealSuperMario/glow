@@ -126,7 +126,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
 
             # try two slightly different ways of getting bottlenecks tensors
             # to checkpoint
-            for ts in [ts_filtered, ts_all]:
+            for ts in tqdm.tqdm([ts_filtered, ts_all]):
 
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
